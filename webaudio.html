@@ -1,0 +1,129 @@
+<html>
+    <head>
+        <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+        <script src="http://code.jquery.com/jquery-1.11.2.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.compat.min.js">
+        </script>
+    </head>
+    <body>
+        <span id="output"></span>
+        <div id='chart_div' style='width:100%; height:100%'>
+            &nbsp;
+        </div>
+        <script>
+
+            // Load the Visualization API and the piechart package.
+            google.load('visualization', '1.0', {'packages':['corechart']});
+
+            // Set a callback to run when the Google Visualization API is loaded.
+            google.setOnLoadCallback(initChart);
+
+            var chartData = new Array(512); 
+            _.each(chartData, function(val, idx) {
+                chartData[idx] = [idx, val];
+            });
+
+            var chart = null; 
+            var data  = null;
+
+            function initChart() {
+                chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+                data = new google.visualization.DataTable();
+                data.addColumn('number', 'Time');
+                data.addColumn('number', 'Magnitude');
+                data.addRows(chartData);
+            }
+
+            function drawChart() {
+                if (!chart) {
+                    return;
+                }
+                // Create the data table.
+                data.removeRows(0, chartData.length);
+                data.insertRows(0, chartData);
+
+                // Set chart options
+                var options = {'title':'How Much Pizza I Ate Last Night',
+                               'width':1000,
+                               'height':500,
+                               'vAxis': { viewWindow: { min: -5, max: 5} }, 
+                               'hAxis': { viewWindow: { min: 0, max: chartData.length} } };
+
+                // Instantiate and draw our chart, passing in some options.
+                chart.draw(data, options);
+          }
+            
+            $( function() {
+                    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    navigator.getUserMedia = (navigator.getUserMedia ||
+                                              navigator.webkitGetUserMedia ||
+                                              navigator.mozGetUserMedia ||
+                                              navigator.msGetUserMedia);
+
+                    var analyser = audioCtx.createAnalyser();
+                    analyser.maxDecibels = -50;
+                    analyser.minDecibels = -51;
+                    analyser.smoothingTimeConstant = 0.1;
+                    analyser.fftSize = 1024;
+
+                    var bufferLength = analyser.fftSize;
+                    var dataArray = new Uint8Array(bufferLength);
+
+                    var high = 0;
+                    var low = 0;
+
+
+                    function report() {
+
+                        requestAnimationFrame(report);
+                        analyser.getByteTimeDomainData(dataArray);
+                        var sum = 0;
+                        var i = 0;
+                        for (i = 0; i < dataArray.length; i++) {
+                            sum += 128 - dataArray[i];
+                        }
+                        //console.log(dataArray);
+                        
+                        $('#output').html(new Date().toString() + ":" + sum + "/" + i + "=" + sum/i);
+
+                        updateChartData(sum/i);
+                        drawChart();
+                        
+                    }
+
+                    function updateChartData(sum) {
+                       _.each(chartData, function(val, idx) {
+                            if (idx == chartData.length - 1) {
+                                chartData[idx] = [idx, sum];
+                            } else {
+                                chartData[idx] = [idx, chartData[idx+1][1]];
+                            }
+                        }); 
+                    }
+
+
+                    navigator.getUserMedia (
+                      // constraints - only audio needed for this app
+                      {
+                         audio: true
+                      },
+
+                      // Success callback
+                      function(stream) {
+                         var source = audioCtx.createMediaStreamSource(stream);
+                         source.connect(analyser);
+                         report();
+                      },
+
+                      // Error callback
+                      function(err) {
+                         console.log('The following gUM error occured: ', err);
+                      }
+                    );
+
+
+            } );
+        </script>
+    </body>
+</html>
+
