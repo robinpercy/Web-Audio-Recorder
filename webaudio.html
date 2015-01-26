@@ -40,7 +40,7 @@
                 'title': 'Time Domain Audio Data',
                 'width': 1000,
                 'height': 500,
-                'vAxis': {viewWindow: {min: -5, max: 5}},
+                'vAxis': {viewWindow: {min: -2, max: 2}},
                 'hAxis': {viewWindow: {min: 0, max: chartData.length}}
             };
 
@@ -48,6 +48,9 @@
             chart.draw(data, options);
         }
 
+        /**
+         * "Slides" the chart data values down by one
+         */
         function updateChartData(sum) {
             _.each(chartData, function (val, idx) {
                 if (idx == chartData.length - 1) {
@@ -58,30 +61,25 @@
             });
         }
 
-        function setupAnalyser(audioCtx) {
-            var analyser = audioCtx.createAnalyser();
-
-            analyser.maxDecibels = -50;
-            analyser.minDecibels = -51;
-            analyser.smoothingTimeConstant = 0.1;
-            analyser.fftSize = FFT_SIZE;
-
-            return analyser;
-        }
-
-        function updateVisualization(analyser) {
+        /**
+         * Extracts the average magnitude from the analyser, redraws the chart, and then queues up the next animation
+         * frame.
+         *
+         * @param analyser
+         */
+        function visualize(analyser) {
 
             analyser.getByteTimeDomainData(samples);
 
             var sum = _.reduce(samples, function(sum, sample) { return sum + 128 - sample; } );
-            var avg = sum / samples.length;
+            var avg = (sum / samples.length);
 
             $('#output').html(new Date().toString() + ":" + sum + "/" + samples.length + "=" + avg);
 
             updateChartData(avg);
             drawChart();
 
-            requestAnimationFrame( function() { updateVisualization(analyser); } );
+            requestAnimationFrame( function() { visualize(analyser); } );
         }
 
 
@@ -118,12 +116,15 @@
 
             function (stream) {
                 var audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
-                var analyser  = setupAnalyser(audioCtx);
                 var source    = audioCtx.createMediaStreamSource(stream);
+                var analyser  = audioCtx.createAnalyser();
+
+                analyser.fftSize = FFT_SIZE;
 
                 source.connect(analyser);
 
-                updateVisualization(analyser);
+                // Starts a recursively visualizing
+                visualize(analyser);
             },
 
             function (err) {
